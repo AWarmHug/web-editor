@@ -2,6 +2,7 @@
 #
 
 import abc
+import json
 
 import adbutils
 import uiautomator2 as u2
@@ -76,13 +77,16 @@ class _AndroidUiautomatorDevice(DeviceMeta):
         # import adbutils
         page_json = uidumplib.android_hierarchy_to_json(
             page_xml.encode('utf-8'))
-        return {
+        map = {
             "xmlHierarchy": page_xml,
             "jsonHierarchy": page_json,
             "activity": current['activity'],
             "packageName": current['package'],
             "windowSize": self._d.window_size(),
         }
+        a = json.dumps(map)
+        return map
+
 
     @property
     def device(self):

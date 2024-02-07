@@ -62,6 +62,9 @@
             <el-switch v-model="liveScreen" active-text="实时" inactive-text="静态">
             </el-switch>
           </template>
+
+          <span v-text="appType"></span>
+
         </form>
         <ul class="nav navbar-nav navbar-right">
           <!-- <li><a href="#">Link</a></li> -->
@@ -146,6 +149,10 @@
                   <td>XPath(full)</td>
                   <td contenteditable v-text="elemXPathFull"></td>
                 </tr> -->
+                <tr>
+                  <td class="always-exists-attr">elementPath</td>
+                  <td contenteditable v-text="elementPath"></td>
+                </tr>
                 <tr>
                   <td>
                     <span @click="showCursorPercent = !showCursorPercent" class="cursor-pointer">

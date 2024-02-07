@@ -81,9 +81,16 @@ class PythonShellHandler(tornado.websocket.WebSocketHandler):
 
     def on_close(self):
         logger.warning("websocket closed, cleanup")
-        self._tmpd.cleanup()
-        atexit.unregister(self._tmpd.cleanup)
-        IOLoop.current().add_callback(self.kill_process)
+        if "appType" in self.request.arguments:
+            app_type = self.request.arguments["appType"]
+            self.users.remove(self)
+            self.send_to_browser({'method': 'disconnectDevice', 'value': app_type[0].decode()})
+
+        else:
+            # self.browsers.remove(self)
+            self._tmpd.cleanup()
+            atexit.unregister(self._tmpd.cleanup)
+            IOLoop.current().add_callback(self.kill_process)
 
     @property
     def _tmpdir(self) -> str:
@@ -95,6 +102,8 @@ class PythonShellHandler(tornado.websocket.WebSocketHandler):
             https://www.tornadoweb.org/en/stable/process.html#tornado.process.Subprocess
             https://www.tornadoweb.org/en/stable/iostream.html#tornado.iostream.IOStream
         """
+        if "appType" in self.request.arguments:
+            return
         AsyncSubprocess = WinAsyncSubprocess if IS_WINDOWS else PosixAsyncSubprocess
         env = os.environ.copy()
         env['PYTHONIOENCODING'] = "utf-8"
@@ -184,15 +193,39 @@ class PythonShellHandler(tornado.websocket.WebSocketHandler):
             self.__process.proc.send_signal(
                 signal.SIGINT)  # Linux is so simple
 
+    # 手机
+    users = set()
+
+    # 浏览器
+    browsers = set()
+
     async def open(self):
-        logger.debug("websocket opened")
-        logger.info("create process pid: %d", self.__process.pid)
+        if "appType" in self.request.arguments:
+            app_type = self.request.arguments["appType"]
+            self.users.add(self)
+            self.send_to_browser({'method': 'connectDevice', 'value': app_type[0].decode()})
+        else:
+            self.browsers.add(self)
+            if len(self.users) > 0:
+                app_type = next(iter(self.users)).request.arguments["appType"]
+                self.send_to_browser({'method': 'connectDevice', 'value': app_type[0].decode()})
+        logger.debug("websocket opened %s", self.request.remote_ip)
+        # print("手机用户" + self.users)
+        # print("浏览器" + self.users)
         # self.write2({"method": "resetContent", "value": INIT_CODE})
         # self.write2({"method": "gotoLine", "value": 1})
         # await gen.sleep(.1)
 
     def write2(self, data):
         self.write_message(json.dumps(data))
+
+    def send_device(self, xpath):
+        for value in self.users:
+            value.write2(xpath)
+
+    def send_to_browser(self, message):
+        for value in self.browsers:
+            value.write2(message)
 
     def _adjust_code(self, code: str):
         """ fix indent error, remove all line spaces """
@@ -205,7 +238,11 @@ class PythonShellHandler(tornado.websocket.WebSocketHandler):
         # print("Receive:", message)
         data = json.loads(message)
         method, value = data['method'], data.get('value')
-        if method == 'input':
+        if method == 'sendXPathToDevice':
+            self.send_device(data)
+        elif method == 'elementPath':
+            self.send_to_browser(data)
+        elif method == 'input':
             code = self._adjust_code(value)
             code = json.dumps(code) + "\n"
             logger.debug("send to proc: %s", code.rstrip())

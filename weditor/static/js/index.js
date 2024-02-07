@@ -32,6 +32,8 @@ window.vm = new Vue({
     screenWebSocket: null,
     screenWebSocketUrl: null,
     liveScreen: false,
+    elementPath: '',
+    appType: '请连接App',
     canvas: {
       bg: null,
       fg: null,
@@ -275,6 +277,12 @@ window.vm = new Vue({
         // 用另外的breakpoint标记当前运行中的代码
         // 代码行号:lineno 从0开始
         switch (data.method) {
+          case "elementPath":
+            this.elementPath= data.value
+            break
+          case "connectDevice":
+            this.appType="App已连接:"+data.value
+            break
           case "gotoLine":
             let lineNumber = data.value + this.pyshell.lineno.offset;
             this.setLineGoThrough(this.pyshell.lineno.current)
@@ -969,6 +977,9 @@ window.vm = new Vue({
       }
       return codeLines.join("\n");
     },
+    sendXPathToDevice(xpath){
+      this.pyshell.ws.send(JSON.stringify({ method: "sendXPathToDevice", value: xpath }))
+    },
     runPython(code) {
       return new Promise((resolve, reject) => {
         this.resetConsole()
@@ -1466,6 +1477,8 @@ window.vm = new Vue({
             copyToClipboard(generatedCode);
           }
           self.generatedCode = generatedCode;
+
+          self.sendXPathToDevice({elemXPathFull:self.elemXPathFull,elemXPathLite:self.elemXPathLite })
 
           self.$jstree.jstree("deselect_all");
           self.$jstree.jstree("close_all");
